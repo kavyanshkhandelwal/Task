@@ -1,52 +1,89 @@
 #!/usr/bin/env python3
-"""Conservative passive HTTP metadata checker. Does not submit forms or crawl."""
+"""Low-rate GET-only metadata check for explicitly allowlisted Cynbit pages.
+
+No crawling, endpoint guessing, form submission, authentication, fuzzing, or
+load testing. Redirect targets are validated BEFORE following them.
+"""
 from __future__ import annotations
-import argparse
-import sys
+
+import time
 from urllib.parse import urljoin, urlparse
+
 import requests
 
-PATHS = ("", "robots.txt", "sitemap.xml", "favicon.ico")
-HEADERS_TO_REPORT = (
-    "strict-transport-security",
-    "content-security-policy",
-    "x-content-type-options",
-    "referrer-policy",
-    "permissions-policy",
-    "cache-control",
-    "server",
-)
+APPROVED_HOSTS = {"www.cynbit.in", "cynbit.in"}
+BASE = "https://www.cynbit.in"
+PAGES = ["/", "/services", "/contact", "/careers"]
+DELAY_SECONDS = 1.5
+TIMEOUT_SECONDS = 10
+MAX_REDIRECTS = 3
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="https://www.cynbit.in/")
-    parser.add_argument("--timeout", type=float, default=8.0)
-    args = parser.parse_args()
-    parsed = urlparse(args.base_url)
-    if parsed.scheme != "https" or not parsed.netloc:
-        parser.error("--base-url must be an absolute HTTPS URL")
-    if args.timeout <= 0 or args.timeout > 15:
-        parser.error("--timeout must be greater than 0 and at most 15 seconds")
 
+def validate_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.scheme == "https" and parsed.hostname in APPROVED_HOSTS
+
+
+def get_allowlisted(session: requests.Session, url: str) -> requests.Response | None:
+    current = url
+    for _ in range(MAX_REDIRECTS + 1):
+        if not validate_url(current):
+            print(f"  refusing non-allowlisted URL: {current}")
+            return None
+
+        response = session.get(
+            current,
+            timeout=TIMEOUT_SECONDS,
+            allow_redirects=False,
+            stream=True,
+        )
+        if response.is_redirect or response.is_permanent_redirect:
+            location = response.headers.get("Location")
+            response.close()
+            if not location:
+                return None
+            current = urljoin(current, location)
+            continue
+        return response
+
+    print("  redirect limit reached")
+    return None
+
+
+def main() -> None:
     session = requests.Session()
-    session.headers.update({"User-Agent": "Cynbit-Passive-Audit/1.0 (metadata-only)"})
-    origin = f"{parsed.scheme}://{parsed.netloc}/"
-    for path in PATHS:
-        url = urljoin(origin, path)
+    session.headers.update(
+        {"User-Agent": "Cynbit-Passive-Audit/1.0 (single-request public-page review)"}
+    )
+
+    for path in PAGES:
+        url = BASE + path
         try:
-            response = session.get(url, timeout=args.timeout, allow_redirects=True, stream=True)
-            print(f"\n{url}")
+            response = get_allowlisted(session, url)
+            if response is None:
+                continue
+
+            print(f"\n{path}")
             print(f"  status: {response.status_code}")
             print(f"  final_url: {response.url}")
-            print(f"  content_type: {response.headers.get('Content-Type', 'not supplied')}")
-            print(f"  content_length: {response.headers.get('Content-Length', 'not supplied')}")
-            for key in HEADERS_TO_REPORT:
-                value = response.headers.get(key)
-                print(f"  {key}: {value if value is not None else 'not supplied'}")
+            print(f"  content_type: {response.headers.get('Content-Type', 'not present')}")
+            print(f"  content_length: {response.headers.get('Content-Length', 'not present')}")
+            for header in (
+                "Strict-Transport-Security",
+                "Content-Security-Policy",
+                "X-Content-Type-Options",
+                "X-Frame-Options",
+                "Referrer-Policy",
+                "Permissions-Policy",
+                "Cache-Control",
+            ):
+                print(f"  {header}: {response.headers.get(header, 'not present')}")
             response.close()
         except requests.RequestException as exc:
-            print(f"\n{url}\n  request_error: {type(exc).__name__}: {exc}", file=sys.stderr)
-    return 0
+            print(f"\n{path}: request failed ({type(exc).__name__})")
+        finally:
+            time.sleep(DELAY_SECONDS)
+
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
