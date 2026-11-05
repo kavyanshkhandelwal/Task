@@ -6,7 +6,7 @@ Protect anonymous public submissions without blocking legitimate traffic or rely
 ## Suggested layered policy (illustrative only)
 | Route class | Starting policy | Additional controls |
 |---|---:|---|
-| Contact inquiry | 5 submissions / 10 min / IP | CAPTCHA/risk challenge after threshold; idempotency |
+| Contact inquiry | 5 submissions / 10 min / IP | Risk challenge after threshold; idempotency |
 | Newsletter subscribe | 3 attempts / 10 min / IP + normalized email | Double opt-in; generic response to avoid enumeration |
 | Login | 5 failures / 15 min / account + IP | Progressive delay; MFA; alerting |
 | Password recovery | 3 requests / hour / account + IP | Generic success response; token expiry |
