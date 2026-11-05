@@ -1,26 +1,26 @@
-# Security & Performance Findings Register
+# Security & Performance Findings
 
-## Interpretation
-This register separates risk areas worth investigating from confirmed vulnerabilities. Since this assessment is limited to passive public-surface review, items marked **Verify** are not claims that Cynbit currently has the weakness.
+This register separates observable public facts from risks that require internal verification.
 
-| ID | Category | Finding / risk hypothesis | Evidence | Severity if control is absent | Validation needed |
+| ID | Category | Finding / risk | Evidence status | Severity if control is absent | Recommendation |
 |---|---|---|---|---|---|
-| F-01 | Input validation | Public inquiry fields may be exposed to malformed, oversized, or unexpected input if server-side schemas are incomplete. | Verify | Medium | Review API schema and staging validation cases |
-| F-02 | Abuse prevention | Public write endpoints can be abused for spam or notification flooding without layered rate limits and bot controls. | Inferred | Medium | Review edge and application rate-limit config |
-| F-03 | Privacy | Inquiry, candidate, or newsletter data may be retained longer than necessary without explicit lifecycle policy. | Verify | High | Review retention schedule, deletion workflow, processor contracts |
-| F-04 | File handling | If resumes/attachments are accepted, publicly accessible storage or unsafe file processing could expose data. | Conditional | High | Review upload pipeline, bucket policy, malware scanning |
-| F-05 | Authentication | Any authenticated portal should use secure session/token handling and safe recovery flows. | Verify | High | Authorized account review in staging |
-| F-06 | Authorization | Object-level authorization must be enforced server-side to prevent cross-user/tenant access. | Verify | Critical | Owner-approved two-account staging tests |
-| F-07 | Browser security | Security headers and cookie attributes should be verified against current public responses. | Verify | Medium | Capture response headers for each relevant host |
-| F-08 | Error handling | Verbose errors could disclose internals if exceptions are returned directly. | Verify | Medium | Induce only documented validation errors in staging |
-| F-09 | Performance | Unbounded lists, missing indexes, or synchronous third-party calls can cause tail latency. | Inferred | Medium | APM traces, query plans, load profiles in staging |
-| F-10 | Reliability | Notification provider outages can lose submissions if delivery is synchronous and no durable queue exists. | Inferred | Medium | Review persistence/queue/retry architecture |
+| F-01 | API documentation | No public API contract or OpenAPI reference was identified in the reviewed pages. | Observed limitation; not a vulnerability | Medium (maintainability) | Publish versioned OpenAPI docs for supported APIs; keep internal schemas access-controlled. |
+| F-02 | Input validation | Contact, career, and newsletter journeys imply data intake, but server-side validation cannot be assessed from page content. | Not publicly verifiable | High | Use strict request schemas, length limits, allowlists, normalization, and server-side validation. |
+| F-03 | Abuse prevention | Public inquiry/subscription entry points can attract spam or automated submissions. Actual rate limiting is unknown. | Recommendation based on exposed user journeys | Medium | Apply per-IP and per-identity rate limits, bot controls, duplicate suppression, and monitoring. |
+| F-04 | Privacy / consent | Newsletter CTA and contact/career pages imply collection of personal information; consent and retention implementation were not validated. | CTA observed; processing unknown | High | Record purpose-specific consent, retention, deletion, and access controls. |
+| F-05 | File upload safety | Career applications may involve CV uploads, but no upload behaviour was tested or assumed. | Not publicly verifiable | High if uploads exist without controls | If uploads are supported, enforce MIME/size limits, malware scanning, private storage, random object keys, and short-lived signed URLs. |
+| F-06 | Reliability | Email/CRM notifications tied to intake workflows can fail or increase request latency if performed synchronously. Actual design is unknown. | Recommendation | Medium | Persist request first, enqueue event transactionally (outbox pattern), and process with retry/backoff + DLQ. |
+| F-07 | Performance | Public site performance and backend latency were not benchmarked; no load or synthetic performance test was run. | Not measured | Unknown | Establish RUM/APM baselines and p95/p99 SLOs before optimization. |
+| F-08 | Authentication / authorization | No authenticated application flow was in scope; session handling and object-level authorization remain unverified. | Not publicly verifiable | Critical if absent on private APIs | Review token/session lifecycle and enforce resource ownership checks server-side. |
+| F-09 | Browser/API boundary | CORS, CSRF, CSP, cookie flags, and security headers were not independently assessed as a full control set. | Not publicly verifiable | High | Validate headers in staging and apply restrictive, environment-specific policies. |
+| F-10 | Observability | Public content does not expose operational telemetry or incident practices. | Not publicly verifiable | Medium | Add correlation IDs, redacted structured logs, traces, error budgets, and alerts. |
 
 ## Prioritization
-- **P0 / Critical:** Verify object-level authorization and private file access before handling sensitive multi-user data.
-- **P1 / High:** Data minimization/retention and upload isolation where these workflows exist.
-- **P2 / Medium:** Server validation, abuse throttling, secure headers, sanitized errors, and queue-backed integrations.
-- **P3 / Medium:** Query/index and caching optimization based on measured telemetry.
 
-## Evidence discipline
-No issue above is a confirmed exploitable vulnerability. “Severity if control is absent” describes potential impact, not a verified Cynbit state. Upgrade a finding to confirmed only with reproducible, authorized evidence and a recorded request/response or server-side configuration reference.
+1. **P0 / before processing sensitive data:** schema validation, authorization, PII minimization, secret management, and safe file handling (if uploads exist).
+2. **P1 / operational hardening:** rate limits, idempotency, queue-based notifications, audit logs, security headers, and alerting.
+3. **P2 / maintainability and scale:** OpenAPI contracts, pagination conventions, performance budgets, caching policy, dependency and migration governance.
+
+## Important interpretation
+
+None of F-02 through F-10 states that Cynbit currently has the weakness. “Severity if control is absent” describes potential impact, not a verified Cynbit state. Upgrade a finding to confirmed only with reproducible, authorized evidence and a recorded request/response or server-side configuration reference.
