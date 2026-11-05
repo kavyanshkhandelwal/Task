@@ -1,146 +1,165 @@
-# Cynbit — Backend Technical Audit
+# Backend Technical Audit — Cynbit Technologies
+
+**Assessment:** Backend Developer Intern — Phase 2  
+**Target:** https://www.cynbit.in/  
+**Review date:** 6 November 2026  
+**Method:** Passive public-surface review; no authenticated or intrusive testing.
 
 ## 1. Executive summary
-This report reviews Cynbit from a backend developer's perspective using only the publicly accessible website and publicly visible user journeys. It focuses on how public web workflows typically cross backend trust boundaries: content delivery, contact/inquiry intake, careers applications, newsletter subscriptions, and linked integrations.
 
-**This is not a penetration test or source-code review.** No private API, authenticated account, database, server configuration, cloud account, or internal log was accessed. The report distinguishes public-surface evidence from hypotheses requiring authorized verification.
+Cynbit's public website presents a company and product ecosystem spanning AI automation, custom software, cloud services, careers, and contact channels. The services page publicly advertises technologies across languages, frameworks, AI/data, cloud/ops, and databases, including TypeScript, Python, Go, Rust, Java, C++, React, Next.js, NestJS, FastAPI, Django, PostgreSQL, MongoDB, Redis, Prisma, AWS, Azure, Docker, and Kubernetes. These are advertised capabilities and must not be treated as proof that the public website itself uses this stack.
 
-### Overall assessment
-The strongest improvement opportunities concern public submission handling, security headers and transport policy, request validation, abuse prevention, personal-data lifecycle, and operational observability. Backend controls must be verified from actual HTTP responses and in staging before any issue is classified as a confirmed defect.
+The careers page lists a **Backend Developer Intern** role under Tech Internships (Remote / Jaipur) and describes it as work on the high-performance core of the company's software architecture. The public site also exposes contact/discovery navigation and newsletter subscription calls to action.
 
-## 2. Scope
-**In scope:** public pages reachable without login; visible navigation and business workflows; passive HTTP metadata checks; defensive backend architecture recommendations.
+The externally visible pages do not expose a documented API contract, API versioning policy, authentication protocol, database schema, or deployment topology. This is not itself a vulnerability; it is a limitation of black-box visibility. The report therefore focuses on the backend controls that should support visible and likely user journeys: contact/inquiry intake, newsletter subscription, careers/application workflows, and any product-specific authenticated APIs.
 
-**Out of scope:** credential guessing, account enumeration, password reset manipulation, authorization bypass, IDOR, injection attempts, fuzzing, form submissions, file uploads, bulk requests, crawling, load testing, denial-of-service testing, private endpoints, admin interfaces, employee data, source repositories, or non-public infrastructure.
+**Overall assessment:** No exploitable vulnerability is claimed. The highest-value next step is an authorized review of ordinary browser network traffic for the contact and career journeys, followed by a read-only review of API schemas, middleware, and deployment configuration.
 
-## 3. Methodology and evidence taxonomy
-1. Review public pages and identify journeys that appear to collect or route data.
-2. Map each journey to backend responsibilities without assuming a framework or database.
-3. Review response metadata exposed by conservative GET requests.
-4. Recommend defensive controls and define safe verification by an authorized owner.
+## 2. Scope and limitations
 
-Evidence labels:
-- **Observed:** directly visible on the public website or in a captured public HTTP response.
-- **Inferred:** reasonable architectural interpretation, not proof of implementation.
-- **Verify:** requires server-side evidence, a test account, owner confirmation, or authorized staging test.
+### In scope
+- Public website pages and visible navigation/content.
+- Publicly described contact, newsletter, careers, and product/service journeys.
+- Backend design recommendations for validation, abuse prevention, privacy, reliability, and observability.
+- Conservative GET-only metadata checks against explicitly allowlisted public pages, if run.
 
-A lack of visibility is not evidence that a control is absent.
+### Out of scope
+- Login, account creation, privileged portals, internal/admin APIs, or any non-public product environment.
+- Endpoint enumeration, directory brute forcing, fuzzing, injection payloads, credential testing, bypass attempts, or automated crawling.
+- Form submission, newsletter signup, or contact-message submission (these create records and were intentionally not triggered).
+- Load testing, stress testing, destructive actions, or access to personal/customer data.
 
-## 4. Public workflow / backend boundary map
+### Evidence labels
+- **Observed:** Directly visible in public page content or a public HTTP response.
+- **Not publicly verifiable:** Cannot be confirmed from the accessible public surface.
+- **Recommendation:** A proposed control or design improvement, not a finding that Cynbit currently lacks it.
 
-| Public journey | Likely backend responsibility | Important controls |
-|---|---|---|
-| Company and service pages | CMS or static content delivery | HTTPS, cache policy, CSP, safe redirects |
-| Contact / inquiry journey, if enabled | Accept, validate, persist, notify or route a lead | Schema validation, anti-abuse, idempotency, consent, PII minimization |
-| Careers / application journey, if enabled | Candidate data and resume attachments | File validation, private object storage, retention, access control |
-| Newsletter journey, if enabled | Subscription lifecycle and provider integration | Double opt-in, duplicate handling, unsubscribe, consent evidence |
-| Third-party links or embedded forms | Cross-origin integration and vendor transfer | Origin allowlist, vendor review, minimal data sharing |
+## 3. Public surface and likely backend workflows
 
-These are candidate responsibilities based on public journey types, not assertions that Cynbit uses a particular API or vendor.
+| Surface | Public evidence | Backend implications | Confidence |
+|---|---|---|---|
+| Home / services | Site describes AI automation, software development, SaaS products, cloud infrastructure, and a broad technical capability stack. | Pages may be static/CMS-backed; product apps may have separate APIs. | Public content observed; implementation unknown |
+| Contact / discovery | Contact navigation and “Start discovery” calls to action are visible. The contact route could not be independently retrieved during this review. | If an inquiry form exists, it needs strict schema validation, spam controls, consent/privacy handling, and durable delivery. | CTA observed; page/API details not verified |
+| Careers | Careers page lists a Backend Developer Intern role and other internship/full-time roles; role-detail links are visible. | Role detail and application workflows may use CMS or application APIs; implementation is unknown. | Role listing observed; application flow unknown |
+| Newsletter | “Subscribe to our Briefing” / newsletter calls to action are visible on public pages. | Subscription needs double opt-in, unsubscribe, deduplication, and consent records. | CTA observed; processing unknown |
+| Privacy / cookies | Footer links to Privacy Policy and Cookies pages. | Data collection, retention, cookie categories, and consent enforcement should match actual tracking and form processing. | Links observed; policy contents not audited |
 
-## 5. Candidate architecture
+## 4. Observable architecture assessment
+
+### 4.1 What can be said
+1. The public site has multiple content areas and distinct user journeys (company information, services, product suite, careers, contact, newsletter).
+2. The careers page lists the Backend Developer Intern role under Tech Internships and describes a high-performance software architecture focus.
+3. The services page advertises several languages, backend frameworks, data technologies, and cloud platforms. This is a statement of capabilities, not evidence that the public website itself uses any one of them.
+4. No public OpenAPI/Swagger document, API reference, or backend architecture diagram was identified in the reviewed public content.
+
+### 4.2 What cannot responsibly be inferred
+- Whether the website is implemented with Next.js, another framework, a headless CMS, or a custom server.
+- Whether public forms call a first-party API, a third-party form provider, or server actions.
+- Which database, cache, queue, hosting provider, WAF, or authentication provider is in use.
+- Whether authorization, rate limiting, CSRF protection, input validation, encryption-at-rest, or audit logging are correctly implemented.
+- Whether any API is vulnerable. A lack of public documentation does not prove a lack of API security.
+
+### 4.3 Recommended logical architecture
 
 ```text
-Browser
-  |
- HTTPS
-  v
-CDN / WAF / Edge
-  |
-Web application / API gateway
-  +--> Public content service / CMS
-  +--> Inquiry service ------> Relational DB
-  |          +---------------> Queue -> Notification worker
-  +--> Careers service ------> Private object storage
-  +--> Newsletter adapter ---> Consent-aware email provider
-  +--> Central logs, metrics, traces, audit events
+Browser / public website
+        |
+        v
+CDN + WAF + TLS termination
+        |
+        v
+Backend API gateway / application entrypoint
+        |             \
+        |              +--> rate limits, request IDs, security headers
+        v
+Domain services
+  |-- Contact / lead intake
+  |-- Careers / application intake
+  |-- Newsletter subscription
+  |-- Product APIs (separate auth boundary)
+        |
+        +--> Relational DB (transactional records)
+        +--> Queue + worker (email, notifications, integrations)
+        +--> Object storage (private uploads, if required)
+        +--> Audit log / metrics / traces
 ```
 
-Keep public read-only content cacheable at the edge. Put writes behind server-side validation and abuse controls. Queue non-critical notifications after durable acceptance. Store candidate documents privately with short-lived signed downloads. Persist consent and retention metadata. Enforce authorization in the service/data layer, not only the frontend.
+This is a proposed reference architecture, not a diagram of Cynbit's current infrastructure.
 
-## 6. API design review checklist
-No private API inventory is asserted. For every discovered or owner-provided endpoint, document:
+## 5. API contract and payload recommendations
 
-| Area | Review questions |
-|---|---|
-| Contract | Are method, path, schema, response, and error model documented? |
-| Validation | Are length, format, enum, range, and cross-field constraints enforced server-side? |
-| Authentication | Is authentication required where appropriate? Are tokens safely stored and rotated? |
-| Authorization | Is every object access checked against principal and tenant? |
-| Error handling | Are errors stable, non-sensitive, and traceable with correlation IDs? |
-| Idempotency | Can retries create duplicate inquiries, applications, or subscriptions? |
-| Pagination | Are list endpoints bounded and semantics explicit? |
-| Rate limiting | Are unauthenticated write endpoints protected by fair limits? |
-| Observability | Are latency, failure rate, queue lag, and dependency errors measured? |
-| Versioning | Are breaking changes managed and documented? |
+For public intake endpoints, define explicit contracts rather than accepting arbitrary dictionaries. Example endpoints (proposed only):
 
-### Suggested inquiry contract (recommendation, not observed endpoint)
-- `POST /api/v1/inquiries`
-- Request: `name`, `email`, `message`, `consent`, optional `source`.
-- Success: `202 Accepted` with generic receipt and request ID.
-- Validation failure: `422 Unprocessable Entity` with safe field errors.
-- Rate limited: `429 Too Many Requests` with `Retry-After`.
-- Never expose SQL errors, stack traces, provider credentials, or internal hostnames.
+- `POST /api/v1/inquiries` — validate and persist a project inquiry; enqueue notification asynchronously.
+- `POST /api/v1/newsletter/subscriptions` — normalize email, record consent and source, send confirmation.
+- `POST /api/v1/careers/applications` — validate role identifier and applicant fields; accept uploads only through constrained private storage.
+- `GET /api/v1/health/live` and `/ready` — separate process liveness from dependency readiness; do not disclose internals.
 
-## 7. Security review
+For every endpoint document: method, path, auth requirement, request schema, response schema, status codes, idempotency behaviour, rate limit, PII classification, retention, and owner.
 
-### Public write paths
-If inquiry, application, or subscription endpoints exist, treat them as untrusted-input boundaries:
-- Enforce allowlisted schemas and maximum payload sizes server-side.
-- Encode output in any admin interface that displays submitted text.
-- Apply rate limits, bot controls, and duplicate suppression.
-- Record consent and purpose; minimize collected personal data.
-- Store documents privately using random object keys and short-lived signed downloads.
-- Validate upload content type and file signatures; never trust client MIME alone.
+### Example inquiry request (illustrative)
 
-### Authentication and authorization
-If authenticated portals exist beyond public pages:
-- Use a vetted identity provider or mature framework implementation.
-- Prefer secure, HttpOnly, SameSite cookies for browser sessions; protect cookie-authenticated writes against CSRF.
-- Rotate session identifiers after authentication and privilege changes.
-- Enforce role and object ownership checks on every request.
-- Avoid long-lived bearer tokens in browser local storage.
-- Log security events without secrets or complete personal payloads.
-
-These are recommendations. Public browsing does not prove whether Cynbit has authenticated product features.
-
-### Browser and transport controls
-Review actual responses for HSTS (after HTTPS/subdomain readiness), a practical CSP, X-Content-Type-Options: nosniff, Referrer-Policy, restrictive Permissions-Policy, secure redirects, and cookie attributes. A header scan is point-in-time evidence, not a full security assessment.
-
-## 8. Performance and reliability
-Measure:
-- p50/p95/p99 server duration by endpoint.
-- TTFB and asset caching from representative geographies.
-- Database query latency and connection-pool saturation.
-- External provider latency and timeout rates.
-- Queue depth, oldest-message age, retries, and dead-letter volume.
-- 4xx/5xx rates by route and release.
-
-Recommended controls: CDN caching for public assets; compression and correct cache-control; bounded pagination; query indexes based on observed plans; outbound timeouts and retry budgets with exponential backoff and jitter; graceful degradation for optional vendors; asynchronous email/CRM side effects; connection pooling.
-
-Do not optimize from assumptions. Measure representative traffic and profile the slowest paths first.
-
-## 9. Error handling and operations
-Use a stable, non-sensitive error envelope:
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Please review the highlighted fields.",
-    "request_id": "req_01J..."
-  }
+  "name": "Aarav Sharma",
+  "email": "aarav@example.com",
+  "company": "Example Labs",
+  "project_type": "web_platform",
+  "message": "We need a customer portal with role-based access.",
+  "consent": true
 }
 ```
 
-Use structured logs with request IDs, distributed traces across API/DB/worker boundaries, dashboards for latency/error/queue signals, and alerts on actionable symptoms. Do not log passwords, tokens, full message bodies, or uploaded document contents.
+The API should reject unknown/oversized fields, normalize email safely, bound string lengths, and never trust client-supplied role, status, owner, or internal routing fields.
 
-## 10. Prioritized next steps
-1. Inventory public and authenticated endpoints with the application owner.
-2. Write OpenAPI contracts for public write workflows.
-3. Add schema validation, request-size limits, rate limiting, and idempotency.
-4. Review consent, retention, access boundaries, and upload storage.
-5. Establish latency/error/dependency dashboards and safe alert thresholds.
-6. Run an authorized staging test plan with test accounts and synthetic data.
+## 6. Data handling and privacy
 
-## 11. Limitations
-Public frontend behavior cannot reveal database schema, internal API topology, access-control policy, server-side validation, secrets management, deployment topology, or monitoring coverage. No vulnerability should be claimed in these areas without corroborating server-side or authorized test evidence.
+- Collect only fields needed to respond to the inquiry or process an application.
+- Record consent purpose, policy version, timestamp, and source for newsletter and marketing opt-ins.
+- Keep contact inquiries, job applications, and newsletter subscriptions in separate logical data domains with different retention rules.
+- Restrict applicant CV/resume files to private object storage; use short-lived signed download URLs and malware scanning where uploads are supported.
+- Encrypt traffic with TLS; use managed encryption at rest and managed secrets for database/API credentials.
+- Define deletion and access-request workflows, retention windows, and backup expiry. Avoid logging full messages, CVs, tokens, or raw personal data.
+
+## 7. Reliability and performance
+
+- Perform server-side validation before database writes.
+- Use bounded pagination for any list endpoints; set maximum page size and stable sort order.
+- Add indexes for fields used in filters and uniqueness constraints (e.g., normalized email for newsletter subscriptions).
+- Send email/CRM notifications through a queue with retry/backoff and a dead-letter path; do not make user-facing requests wait on external email providers.
+- Use idempotency keys for retryable create operations to prevent duplicate inquiries/applications.
+- Cache only public, non-personal content. Do not cache authenticated or user-specific responses in shared CDN caches.
+- Set connection pool limits, request timeouts, and upstream timeouts. Instrument p50/p95/p99 latency, error rates, queue lag, and database pool saturation.
+
+## 8. Security controls to verify with authorization
+
+The following are verification targets, not confirmed vulnerabilities:
+
+1. **Authentication:** secure session/token lifecycle, expiry, refresh rotation, logout invalidation, and MFA for privileged users.
+2. **Authorization:** server-side role/resource checks on every protected operation; deny by default; test tenant/object ownership with test accounts.
+3. **Input handling:** allowlist validation, parameterized queries/ORM, output encoding, safe file handling, and bounded payload sizes.
+4. **Browser protections:** restrictive CORS allowlist, CSRF protection where cookie authentication is used, CSP, HSTS, frame protections, and secure cookie flags.
+5. **Abuse prevention:** endpoint-specific rate limits, bot/spam controls, request body limits, and email verification for newsletter signup.
+6. **Secrets:** no credentials in frontend bundles or source maps; rotate exposed secrets; use a managed secret store.
+7. **Observability:** structured redacted logs, correlation IDs, immutable audit events for privileged actions, and alerting on suspicious patterns.
+
+## 9. Safe next steps for a fuller audit
+
+With written authorization and a designated test environment:
+1. Capture ordinary browser Network-panel requests while manually using test contact/career forms with synthetic data.
+2. Obtain OpenAPI specs or route/controller inventory from the engineering team.
+3. Review authentication and authorization middleware and test with two approved test accounts.
+4. Review schemas/migrations, indexes, transaction boundaries, and data-retention jobs.
+5. Review CI/CD, dependency scanning, secrets management, and production observability.
+6. Run approved automated security checks only against the agreed staging host and scope.
+
+## 10. Public references
+
+- Cynbit Technologies homepage: https://www.cynbit.in/
+- Services and advertised technology capabilities: https://www.cynbit.in/services
+- Contact navigation / discovery CTA: https://www.cynbit.in/ (contact route was not independently retrievable during this review)
+- Careers and role listings: https://www.cynbit.in/careers
+
+## Final assessment
+
+The public website provides clear user-facing journeys but insufficient evidence to make claims about internal backend quality. The strongest backend contribution is to establish explicit contracts and controls around public intake workflows, isolate product authentication boundaries, move integrations to asynchronous workers, and make privacy/security controls observable through tests and telemetry. The highest-priority engineering action is an authorized review of actual form/API traffic and backend implementation, not speculative endpoint probing.
